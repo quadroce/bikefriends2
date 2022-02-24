@@ -24,10 +24,10 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Firebase Meetup',
+      title: 'Sport Friends',
       theme: ThemeData(
         buttonTheme: Theme.of(context).buttonTheme.copyWith(
-              highlightColor: Colors.deepPurple,
+              highlightColor: Colors.redAccent[500],
             ),
         primarySwatch: Colors.deepPurple,
         textTheme: GoogleFonts.robotoTextTheme(
@@ -65,8 +65,16 @@ class HomePage extends StatelessWidget {
               cancelRegistration: appState.cancelRegistration,
               registerAccount: appState.registerAccount,
               signOut: appState.signOut,
+              //  resetPassword: appState.resetPassword(),
             ),
           ),
+          // Padding(
+          //   padding: const EdgeInsets.only(left: 24, bottom: 8),
+          //   child: StyledButton(
+          //     onPressed: () => {resetPassword()},
+          //     child: const Text('Forgot your password'),
+          //   ),
+          // ),
           const Divider(
             height: 8,
             thickness: 1,
@@ -95,8 +103,8 @@ class HomePage extends StatelessWidget {
                   ),
                   const Header('Discussion'),
                   GuestBook(
-                    addMessage: (message) =>
-                        appState.addMessageToGuestBook(message),
+                    addMessage: (message, party) =>
+                        appState.addMessageToGuestBook(message, party),
                     messages: appState.guestBookMessages,
                   ),
                 ],
@@ -142,6 +150,7 @@ class ApplicationState extends ChangeNotifier {
               GuestBookMessage(
                 name: document.data()['name'] as String,
                 message: document.data()['text'] as String,
+                party: document.data()['party'] as int,
               ),
             );
           }
@@ -258,11 +267,16 @@ class ApplicationState extends ChangeNotifier {
     }
   }
 
+  // void resetPassword() async {
+  //   _loginState = ApplicationLoginState.emailAddress;
+  //   FirebaseAuth.instance.sendPasswordResetEmail(emailAddress);
+  // }
+
   void signOut() {
     FirebaseAuth.instance.signOut();
   }
 
-  Future<DocumentReference> addMessageToGuestBook(String message) {
+  Future<DocumentReference> addMessageToGuestBook(String message, int party) {
     if (_loginState != ApplicationLoginState.loggedIn) {
       throw Exception('Must be logged in');
     }
@@ -271,7 +285,8 @@ class ApplicationState extends ChangeNotifier {
         .collection('guestbook')
         .add(<String, dynamic>{
       'text': message,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'party': party,
+      'timestamp': DateTime.now().day,
       'name': FirebaseAuth.instance.currentUser!.displayName,
       'userId': FirebaseAuth.instance.currentUser!.uid,
     });
@@ -279,16 +294,18 @@ class ApplicationState extends ChangeNotifier {
 }
 
 class GuestBookMessage {
-  GuestBookMessage({required this.name, required this.message});
+  GuestBookMessage(
+      {required this.name, required this.message, required this.party});
   final String name;
   final String message;
+  final int party;
 }
 
 enum Attending { yes, no, unknown }
 
 class GuestBook extends StatefulWidget {
   const GuestBook({required this.addMessage, required this.messages});
-  final FutureOr<void> Function(String message) addMessage;
+  final FutureOr<void> Function(String message, int party) addMessage;
   final List<GuestBookMessage> messages;
 
   @override
@@ -298,6 +315,7 @@ class GuestBook extends StatefulWidget {
 class _GuestBookState extends State<GuestBook> {
   final _formKey = GlobalKey<FormState>(debugLabel: '_GuestBookState');
   final _controller = TextEditingController();
+  final _controller2 = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -314,11 +332,27 @@ class _GuestBookState extends State<GuestBook> {
                   child: TextFormField(
                     controller: _controller,
                     decoration: const InputDecoration(
-                      hintText: 'Leave a message',
+                      hintText: 'nome',
                     ),
+                    // The validator receives the text that the user has entered.
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Enter your message to continue';
+                        return 'Please enter some text';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: TextFormField(
+                    controller: _controller2,
+                    decoration: const InputDecoration(
+                      hintText: 'Leave a message',
+                    ),
+                    // The validator receives the text that the user has entered.
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'test2';
                       }
                       return null;
                     },
@@ -328,15 +362,17 @@ class _GuestBookState extends State<GuestBook> {
                 StyledButton(
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
-                      await widget.addMessage(_controller.text);
+                      await widget.addMessage(
+                          _controller.text, _controller2.hashCode);
                       _controller.clear();
+                      _controller2.clear();
                     }
                   },
                   child: Row(
                     children: const [
-                      Icon(Icons.send),
+                      Icon(Icons.run_circle),
                       SizedBox(width: 4),
-                      Text('SEND'),
+                      Text('Create a Party'),
                     ],
                   ),
                 ),
@@ -346,7 +382,7 @@ class _GuestBookState extends State<GuestBook> {
         ),
         const SizedBox(height: 8),
         for (var message in widget.messages)
-          Paragraph('${message.name}: ${message.message}'),
+          Paragraph('${message.name}: ${message.message}:${message.party}'),
         const SizedBox(height: 8),
       ],
     );
