@@ -6,7 +6,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:numberpicker/numberpicker.dart';
 
+import 'package:flutter/services.dart';
 import 'firebase_options.dart';
 import 'src/authentication.dart';
 import 'src/widgets.dart';
@@ -117,6 +119,61 @@ class HomePage extends StatelessWidget {
   }
 }
 
+class _IntegerExample extends StatefulWidget {
+  @override
+  __IntegerExampleState createState() => __IntegerExampleState();
+}
+
+class __IntegerExampleState extends State<_IntegerExample> {
+  int _currentIntValue = 10;
+  int _currentHorizontalIntValue = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Divider(color: Colors.grey, height: 32),
+        SizedBox(height: 16),
+        Text('Horizontal', style: Theme.of(context).textTheme.headline6),
+        NumberPicker(
+          value: _currentHorizontalIntValue,
+          minValue: 1,
+          maxValue: 10,
+          step: 1,
+          itemHeight: 100,
+          axis: Axis.horizontal,
+          onChanged: (value) =>
+              setState(() => _currentHorizontalIntValue = value),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.black26),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: Icon(Icons.remove),
+              onPressed: () => setState(() {
+                final newValue = _currentHorizontalIntValue - 1;
+                _currentHorizontalIntValue = newValue.clamp(1, 10);
+              }),
+            ),
+            Text('Current horizontal int value: $_currentHorizontalIntValue'),
+            IconButton(
+              icon: Icon(Icons.add),
+              onPressed: () => setState(() {
+                final newValue = _currentHorizontalIntValue + 1;
+                _currentHorizontalIntValue = newValue.clamp(1, 10);
+              }),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class ApplicationState extends ChangeNotifier {
   ApplicationState() {
     init();
@@ -150,7 +207,7 @@ class ApplicationState extends ChangeNotifier {
               GuestBookMessage(
                 name: document.data()['name'] as String,
                 message: document.data()['text'] as String,
-                party: document.data()['party'] as int,
+                party: document.data()['party'] as String,
               ),
             );
           }
@@ -276,13 +333,15 @@ class ApplicationState extends ChangeNotifier {
     FirebaseAuth.instance.signOut();
   }
 
-  Future<DocumentReference> addMessageToGuestBook(String message, int party) {
+  Future<DocumentReference> addMessageToGuestBook(
+      String message, String party) {
     if (_loginState != ApplicationLoginState.loggedIn) {
       throw Exception('Must be logged in');
     }
 
-    return FirebaseFirestore.instance
-        .collection('guestbook')
+    return FirebaseFirestore.instance.collection('guestbook')
+        //.add(<String, dynamic>{
+
         .add(<String, dynamic>{
       'text': message,
       'party': party,
@@ -298,16 +357,15 @@ class GuestBookMessage {
       {required this.name, required this.message, required this.party});
   final String name;
   final String message;
-  final int party;
+  final String party;
 }
 
 enum Attending { yes, no, unknown }
 
 class GuestBook extends StatefulWidget {
   const GuestBook({required this.addMessage, required this.messages});
-  final FutureOr<void> Function(String message, int party) addMessage;
+  final FutureOr<void> Function(String message, String party) addMessage;
   final List<GuestBookMessage> messages;
-
   @override
   _GuestBookState createState() => _GuestBookState();
 }
@@ -326,48 +384,75 @@ class _GuestBookState extends State<GuestBook> {
           padding: const EdgeInsets.all(8.0),
           child: Form(
             key: _formKey,
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'nome',
-                    ),
-                    // The validator receives the text that the user has entered.
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter some text';
-                      }
-                      return null;
-                    },
+                TextFormField(
+                  controller: _controller,
+                  decoration: const InputDecoration(
+                    hintText: 'nome',
                   ),
+                  // The validator receives the text that the user has entered.
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'test2';
+                    }
+                    return null;
+                  },
                 ),
-                Expanded(
-                  child: TextFormField(
-                    controller: _controller2,
-                    decoration: const InputDecoration(
-                      hintText: 'Leave a message',
-                    ),
-                    // The validator receives the text that the user has entered.
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'test2';
-                      }
-                      return null;
-                    },
+                _IntegerExample(),
+                TextFormField(
+                  controller: _controller2,
+                  decoration: const InputDecoration(
+                    hintText: 'Leave a message',
                   ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                  ],
+                  // The validator receives the text that the user has entered.
+                  validator: (value2) {
+                    if (value2 == null) {
+                      return null;
+                    }
+                    final n = num.tryParse(value2);
+                    if (n == null) {
+                      return '"$value2" is not a valid number';
+                    }
+                    return null;
+                  },
+                  //validator: numberValidator,
                 ),
                 const SizedBox(width: 8),
                 StyledButton(
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
+                      //int.parse(_controller2.text);
+                      _controller2.toString();
                       await widget.addMessage(
-                          _controller.text, _controller2.hashCode);
+                          _controller.text, _controller2.text);
+
                       _controller.clear();
                       _controller2.clear();
                     }
                   },
+
+                  /* onPressed: () => showDialog<String>(
+                    context: context,
+                    builder: (BuildContext context) => AlertDialog(
+                      title: const Text('AlertDialog Title'),
+                      content: Text(_controller2.toString()),
+                      actions: <Widget>[
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, 'Cancel'),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, 'OK'),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  ), */
                   child: Row(
                     children: const [
                       Icon(Icons.run_circle),
