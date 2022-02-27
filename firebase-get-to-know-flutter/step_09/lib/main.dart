@@ -125,8 +125,8 @@ class _IntegerExample extends StatefulWidget {
 }
 
 class __IntegerExampleState extends State<_IntegerExample> {
-  int _currentIntValue = 10;
-  int _currentHorizontalIntValue = 10;
+  int _currentIntValue = 1;
+  int _currentHorizontalIntValue = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -399,11 +399,11 @@ class _GuestBookState extends State<GuestBook> {
                     return null;
                   },
                 ),
-                _IntegerExample(),
+                // _IntegerExample(),
                 TextFormField(
                   controller: _controller2,
                   decoration: const InputDecoration(
-                    hintText: 'Leave a message',
+                    hintText: 'how many people?',
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: <TextInputFormatter>[
@@ -422,6 +422,16 @@ class _GuestBookState extends State<GuestBook> {
                   },
                   //validator: numberValidator,
                 ),
+                StyledButton(
+                  onPressed: () {
+                    _selectDate(context);
+                  },
+                  child: Text("Choose Date"),
+                ),
+
+                Text(
+                    "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}"),
+
                 const SizedBox(width: 8),
                 StyledButton(
                   onPressed: () async {
@@ -435,24 +445,6 @@ class _GuestBookState extends State<GuestBook> {
                       _controller2.clear();
                     }
                   },
-
-                  /* onPressed: () => showDialog<String>(
-                    context: context,
-                    builder: (BuildContext context) => AlertDialog(
-                      title: const Text('AlertDialog Title'),
-                      content: Text(_controller2.toString()),
-                      actions: <Widget>[
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, 'Cancel'),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, 'OK'),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  ), */
                   child: Row(
                     children: const [
                       Icon(Icons.run_circle),
@@ -471,6 +463,21 @@ class _GuestBookState extends State<GuestBook> {
         const SizedBox(height: 8),
       ],
     );
+  }
+
+  String date = '';
+  DateTime selectedDate = DateTime.now();
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+        context: context,
+        initialDate: selectedDate,
+        firstDate: DateTime(2015),
+        lastDate: DateTime(2050));
+    if (pickedDate != null && pickedDate != selectedDate)
+      setState(() {
+        selectedDate = pickedDate;
+      });
   }
 }
 
