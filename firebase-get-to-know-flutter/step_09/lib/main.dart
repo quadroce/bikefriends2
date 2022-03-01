@@ -53,10 +53,10 @@ class HomePage extends StatelessWidget {
       ),
       body: ListView(
         children: <Widget>[
-          Image.asset('assets/codelab.png'),
-          const SizedBox(height: 8),
-          const IconAndDetail(Icons.calendar_today, 'October 30'),
-          const IconAndDetail(Icons.location_city, 'San Francisco'),
+          // Image.asset('assets/codelab.png'),
+          // const SizedBox(height: 8),
+          // const IconAndDetail(Icons.calendar_today, 'October 30'),
+          // const IconAndDetail(Icons.location_city, 'San Francisco'),
           Consumer<ApplicationState>(
             builder: (context, appState, _) => Authentication(
               email: appState.email,
@@ -105,8 +105,8 @@ class HomePage extends StatelessWidget {
                   ),
                   const Header('Discussion'),
                   GuestBook(
-                    addMessage: (message, party) =>
-                        appState.addMessageToGuestBook(message, party),
+                    addMessage: (message, party, date) =>
+                        appState.addMessageToGuestBook(message, party, date),
                     messages: appState.guestBookMessages,
                   ),
                 ],
@@ -119,61 +119,7 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _IntegerExample extends StatefulWidget {
-  @override
-  __IntegerExampleState createState() => __IntegerExampleState();
-}
-
-class __IntegerExampleState extends State<_IntegerExample> {
-  int _currentIntValue = 1;
-  int _currentHorizontalIntValue = 1;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Divider(color: Colors.grey, height: 32),
-        SizedBox(height: 16),
-        Text('Horizontal', style: Theme.of(context).textTheme.headline6),
-        NumberPicker(
-          value: _currentHorizontalIntValue,
-          minValue: 1,
-          maxValue: 10,
-          step: 1,
-          itemHeight: 100,
-          axis: Axis.horizontal,
-          onChanged: (value) =>
-              setState(() => _currentHorizontalIntValue = value),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.black26),
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              icon: Icon(Icons.remove),
-              onPressed: () => setState(() {
-                final newValue = _currentHorizontalIntValue - 1;
-                _currentHorizontalIntValue = newValue.clamp(1, 10);
-              }),
-            ),
-            Text('Current horizontal int value: $_currentHorizontalIntValue'),
-            IconButton(
-              icon: Icon(Icons.add),
-              onPressed: () => setState(() {
-                final newValue = _currentHorizontalIntValue + 1;
-                _currentHorizontalIntValue = newValue.clamp(1, 10);
-              }),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
+/*  */
 class ApplicationState extends ChangeNotifier {
   ApplicationState() {
     init();
@@ -185,7 +131,7 @@ class ApplicationState extends ChangeNotifier {
     );
 
     FirebaseFirestore.instance
-        .collection('attendees')
+        .collection('guestbook')
         .where('attending', isEqualTo: true)
         .snapshots()
         .listen((snapshot) {
@@ -208,13 +154,14 @@ class ApplicationState extends ChangeNotifier {
                 name: document.data()['name'] as String,
                 message: document.data()['text'] as String,
                 party: document.data()['party'] as String,
+                date: document.data()['date'] as DateTime,
               ),
             );
           }
           notifyListeners();
         });
         _attendingSubscription = FirebaseFirestore.instance
-            .collection('attendees')
+            .collection('guestbook')
             .doc(user.uid)
             .snapshots()
             .listen((snapshot) {
@@ -257,7 +204,7 @@ class ApplicationState extends ChangeNotifier {
   Attending get attending => _attending;
   set attending(Attending attending) {
     final userDoc = FirebaseFirestore.instance
-        .collection('attendees')
+        .collection('guestbook')
         .doc(FirebaseAuth.instance.currentUser!.uid);
     if (attending == Attending.yes) {
       userDoc.set(<String, dynamic>{'attending': true});
@@ -334,7 +281,7 @@ class ApplicationState extends ChangeNotifier {
   }
 
   Future<DocumentReference> addMessageToGuestBook(
-      String message, String party) {
+      String message, String party, DateTime date) {
     if (_loginState != ApplicationLoginState.loggedIn) {
       throw Exception('Must be logged in');
     }
@@ -345,6 +292,7 @@ class ApplicationState extends ChangeNotifier {
         .add(<String, dynamic>{
       'text': message,
       'party': party,
+      'date': date.millisecondsSinceEpoch,
       'timestamp': DateTime.now().day,
       'name': FirebaseAuth.instance.currentUser!.displayName,
       'userId': FirebaseAuth.instance.currentUser!.uid,
@@ -354,17 +302,22 @@ class ApplicationState extends ChangeNotifier {
 
 class GuestBookMessage {
   GuestBookMessage(
-      {required this.name, required this.message, required this.party});
+      {required this.name,
+      required this.message,
+      required this.party,
+      required this.date});
   final String name;
   final String message;
   final String party;
+  final DateTime date;
 }
 
 enum Attending { yes, no, unknown }
 
 class GuestBook extends StatefulWidget {
   const GuestBook({required this.addMessage, required this.messages});
-  final FutureOr<void> Function(String message, String party) addMessage;
+  final FutureOr<void> Function(String message, String party, DateTime date)
+      addMessage;
   final List<GuestBookMessage> messages;
   @override
   _GuestBookState createState() => _GuestBookState();
@@ -374,6 +327,9 @@ class _GuestBookState extends State<GuestBook> {
   final _formKey = GlobalKey<FormState>(debugLabel: '_GuestBookState');
   final _controller = TextEditingController();
   final _controller2 = TextEditingController();
+  final String date = '';
+
+  DateTime selectedDate = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -426,11 +382,11 @@ class _GuestBookState extends State<GuestBook> {
                   onPressed: () {
                     _selectDate(context);
                   },
-                  child: Text("Choose Date"),
+                  child: Text('Choose Date'),
                 ),
 
                 Text(
-                    "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}"),
+                    '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
 
                 const SizedBox(width: 8),
                 StyledButton(
@@ -438,11 +394,16 @@ class _GuestBookState extends State<GuestBook> {
                     if (_formKey.currentState!.validate()) {
                       //int.parse(_controller2.text);
                       _controller2.toString();
+                      //date.toString();
                       await widget.addMessage(
-                          _controller.text, _controller2.text);
-
+                          _controller.text,
+                          _controller2.text,
+                          DateTime.fromMillisecondsSinceEpoch(
+                              selectedDate.hashCode));
                       _controller.clear();
                       _controller2.clear();
+
+                      //date.clear();
                     }
                   },
                   child: Row(
@@ -459,14 +420,12 @@ class _GuestBookState extends State<GuestBook> {
         ),
         const SizedBox(height: 8),
         for (var message in widget.messages)
-          Paragraph('${message.name}: ${message.message}:${message.party}'),
+          Paragraph(
+              '${message.name}: ${message.message}:${message.party}:${message.date}'),
         const SizedBox(height: 8),
       ],
     );
   }
-
-  String date = '';
-  DateTime selectedDate = DateTime.now();
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
@@ -474,10 +433,11 @@ class _GuestBookState extends State<GuestBook> {
         initialDate: selectedDate,
         firstDate: DateTime(2015),
         lastDate: DateTime(2050));
-    if (pickedDate != null && pickedDate != selectedDate)
+    if (pickedDate != null && pickedDate != selectedDate) {
       setState(() {
         selectedDate = pickedDate;
       });
+    }
   }
 }
 
